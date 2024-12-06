@@ -12,4 +12,17 @@
 - <b>Create a map with each State and a variable color for the average level of a specific pollutant in that region.
 - <b>Allow the user to switch between the different pollutants using a selection feature.
 - <b>Allow the user to choose which years data to display.
-- <b>Use plotly to create a web-based application.
+- <b>Use plotly and Dash to create a web-based application.
+
+<h2>Current State of the Application</h2>
+<p align="center">
+<img src="https://i.imgur.com/MDEZA00.png?1" height="80%" width="80%" alt="RDP event fail logs to iP Geographic information"/>
+
+</p>
+<h2>What's Next?</h2>
+
+- <b>Finish processing data for the rest of the nation.
+- <b>Add dropdown for different Toxens (NO2, Ozone, PM2.5).
+- <b>Add location marker for every data site on the nation using Scatterplot.
+- <b>Add an animation for an optional slideshow of all the years.
+- <b>Make the app public using Dash.
