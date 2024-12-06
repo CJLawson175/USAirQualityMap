@@ -1,22 +1,21 @@
-from dash import Dash, dcc, html, Input, Output, callback
-import plotly.express as px
+from dash import Dash, dcc, html, Input, Output
 import pandas as pd
+import plotly.express as px
+import dash_table  # Import the dash_table module
 
 # Import data from GitHub (use raw URL)
-data_url = 'https://raw.githubusercontent.com/CJLawson175/USAirQualityMap/main/Completed.csv'
+data_url = 'https://raw.githubusercontent.com/CJLawson175/USAirQualityMap/main/ENG220_Data_Filtered.csv'
 df = pd.read_csv(data_url)
-
-# Check and remove any rows with missing latitude or longitude values
-df = df.dropna(subset=['Site Latitude', 'Site Longitude'])
 
 # Ensure the 'Year' column is treated as an integer or string (necessary for animation frame)
 df['Year'] = df['Year'].astype(str)
 
-# Check if latitudes and longitudes are within valid ranges
-if df['Site Latitude'].min() < -90 or df['Site Latitude'].max() > 90:
-    print("Warning: Some latitudes are out of range")
-if df['Site Longitude'].min() < -180 or df['Site Longitude'].max() > 180:
-    print("Warning: Some longitudes are out of range")
+# Calculate the yearly average, max, and min CO2 (ppm) per state
+state_stats = df.groupby(['Year', 'State'])['CO2 (ppm)'].agg(['mean', 'max']).reset_index()
+
+# Round the average and max CO2 values to 3 decimals
+state_stats['mean'] = state_stats['mean'].round(3)
+state_stats['max'] = state_stats['max'].round(3)
 
 # Initialize the Dash app
 app = Dash(__name__)
@@ -27,9 +26,9 @@ app.layout = html.Div([
     dcc.Graph(
         id='my_map',  # Graph to display the map
         style={'height': '80vh'},  # Make the map take 80% of the vertical height of the viewport
-        config = {'modeBarButtonsToRemove': ['Pan', 'Downloadplotasapng', 'BoxSelect', 'LassoSelect'],},
+        config={'modeBarButtonsToRemove': ['Pan', 'Downloadplotasapng', 'BoxSelect', 'LassoSelect']},
     ),
-    
+
     # Slider and text output section
     html.Div([
         dcc.Slider(
@@ -41,35 +40,35 @@ app.layout = html.Div([
             step=1,
         ),
         html.Div(id='slider-output-container'),  # Container to show year
-    ], style={'padding': '20px', 'textAlign': 'center'})  # Add some padding around the slider and center it
+    ], style={'padding': '20px', 'textAlign': 'center'}),  # Add some padding around the slider and center it
+
+    # Section to display the first few rows of filtered data
+    html.Div(id='filtered-data-table', style={'padding': '20px'})
 ])
 
 # Callback to update the map and the output container based on the slider
 @app.callback(
     [Output('slider-output-container', 'children'),
-     Output('my_map', 'figure')],  # Update the map figure
+     Output('my_map', 'figure'),  # Update the map figure
+     Output('filtered-data-table', 'children')],  # Output for filtered data table
     Input('my_slider', 'value')  # Listen to slider changes
 )
 def update_figure(selected_Year):
     # Filter the data based on the selected year
-    filtered_data = df[df['Year'] == str(selected_Year)]
+    dff = state_stats[state_stats['Year'] == str(selected_Year)]
 
-    # Create the scatter plot on the US map with dots for each location
-    fig = px.scatter_geo(filtered_data,
-                         lat='Site Latitude',  # Latitude for the location
-                         lon='Site Longitude',  # Longitude for the location
-                         color='Daily Max Concentration',  # Use CO2 concentration for color
-                         hover_name='Local Site Name',  # Hover text with the site name
-                         hover_data=['State', 'Daily Max Concentration', 'Year'],  # Additional hover info
-                         scope='usa',  # Focus the map on the USA
-                         title=f'CO2 Concentration in US States for {selected_Year}',  # Title with selected year
-                         color_continuous_scale='Viridis',  # Adjust color scale for better visualization
-                         range_color = [0,3],
-                         labels={"Daily Max Concentration": "CO2 Concentration (ppm)"},
-                         projection="albers usa",  # Use the Albers projection for a more focused USA view
-                         opacity=0.6,  # Adjust opacity to make the dots more visible
-                         size_max=10,  # Adjust the maximum size of the dots
-                        )
+    # Create the choropleth map for average CO2 (ppm)
+    fig = px.choropleth(
+        data_frame=dff,
+        locationmode='USA-states',
+        locations='State',  # Use 'State' column for locations
+        scope="usa",
+        color='mean',  # Color by average CO2 concentration
+        range_color = [0,0.2],
+        hover_data=['Year', 'mean', 'max'],  # Additional hover info for average and max CO2
+        color_continuous_scale="Viridis",  # Choose an appropriate color scale
+        labels={'mean': 'Average CO2 Concentration (ppm)', 'max': 'Max CO2 Concentration (ppm)'},
+    )
 
     # Update the layout to ensure the map renders correctly
     fig.update_geos(
@@ -81,9 +80,22 @@ def update_figure(selected_Year):
         showcoastlines=True
     )
 
-    # Return the updated text and figure
-    return f"The year chosen by user was: {selected_Year}", fig
+    # Prepare the data for the table (first few rows)
+    table = dash_table.DataTable(
+        data=dff.head().to_dict('records'),  # Convert the first few rows to a dictionary for the DataTable
+        columns=[
+            {'name': 'Year', 'id': 'Year'},
+            {'name': 'State', 'id': 'State'},
+            {'name': 'Average CO2 (ppm)', 'id': 'mean'},
+            {'name': 'Max CO2 (ppm)', 'id': 'max'},
+        ],  # Define the columns based on the DataFrame's columns
+        style_table={'overflowX': 'auto'},  # Allow horizontal scrolling if the table is too wide
+        style_cell={'textAlign': 'left', 'padding': '10px'},  # Style the cells
+        style_header={'backgroundColor': 'lightgrey', 'fontWeight': 'bold'},  # Style the header
+    )
 
+    # Return the updated text (year), map figure, and the first few rows of filtered data
+    return f"", fig, table
 
 # Run the app
 if __name__ == '__main__':
