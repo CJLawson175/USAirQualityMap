@@ -107,6 +107,4 @@ def update_figure(selected_Year):
 def home():
     return 'Welcome to the Flash app! <a href="/dash/">Go to the Dash app</a>'
 
-# Run the Flask app with Dash integrated
-if __name__ == '__main__':
-    server.run(debug=True)
+app.run()
