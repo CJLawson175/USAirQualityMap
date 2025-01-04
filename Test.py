@@ -25,7 +25,7 @@ state_stats['mean'] = state_stats['mean'].round(3)
 state_stats['max'] = state_stats['max'].round(3)
 
 # Initialize Flask app
-app = Flask(__name__)
+server = Flask(__name__)
 
 # Initialize Dash app and link it to Flask server
 app = dash.Dash(__name__, server=server, routes_pathname_prefix='/dash/')
