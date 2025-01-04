@@ -1,7 +1,9 @@
-from dash import Dash, dcc, html, Input, Output
 import pandas as pd
 import plotly.express as px
+import dash
 import dash_table  # Import the dash_table module
+from dash import dcc, html, Input, Output
+from flask import Flask
 
 # Import data from GitHub (use raw URL)
 data_url = 'https://raw.githubusercontent.com/CJLawson175/USAirQualityMap/main/ENG220_Data_Filtered.csv'
@@ -17,8 +19,11 @@ state_stats = df.groupby(['Year', 'State'])['CO2 (ppm)'].agg(['mean', 'max']).re
 state_stats['mean'] = state_stats['mean'].round(3)
 state_stats['max'] = state_stats['max'].round(3)
 
-# Initialize the Dash app
-app = Dash(__name__)
+# Initialize Flask app
+server = Flask(__name__)
+
+# Initialize Dash app and link it to Flask server
+app = dash.Dash(__name__, server=server, routes_pathname_prefix='/dash/')
 
 # Layout
 app.layout = html.Div([
@@ -97,6 +102,11 @@ def update_figure(selected_Year):
     # Return the updated text (year), map figure, and the first few rows of filtered data
     return f"", fig, table
 
-# Run the app
+# Route for the home page
+@server.route('/')
+def home():
+    return 'Welcome to the Flash app! <a href="/dash/">Go to the Dash app</a>'
+
+# Run the Flask app with Dash integrated
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    server.run(debug=True)
