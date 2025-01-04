@@ -1,39 +1,31 @@
 import pandas as pd
 import plotly.express as px
 import dash
-import dash_table
 from dash import dcc, html, Input, Output
 from flask import Flask
-import urllib.error
+import dash_table  # Import the dash_table module
 
 # Import data from GitHub (use raw URL)
 data_url = 'https://raw.githubusercontent.com/CJLawson175/USAirQualityMap/main/USAirQualityData.csv'
 
-# Try fetching the data with error handling
+# Check if the URL is accessible, and load the data
 try:
     df = pd.read_csv(data_url)
-except urllib.error.HTTPError as e:
-    print(f"Error fetching data from {data_url}: {e}")
-    # Fallback to empty DataFrame if data can't be fetched
-    df = pd.DataFrame()
+except Exception as e:
+    raise Exception(f"Error fetching data from URL: {e}")
 
-# Check if the data was loaded correctly
-if df.empty:
-    print("Data is empty or not found. Please verify the URL.")
+# Ensure the 'Year' column is treated as an integer or string (necessary for animation frame)
+df['Year'] = df['Year'].astype(str)
 
-# Ensure the 'Year' column is treated as a string (necessary for animation frame)
-if not df.empty:
-    df['Year'] = df['Year'].astype(str)
+# Calculate the yearly average, max, and min CO2 (ppm) per state
+state_stats = df.groupby(['Year', 'State'])['CO2 (ppm)'].agg(['mean', 'max']).reset_index()
 
-    # Calculate the yearly average, max, and min CO2 (ppm) per state
-    state_stats = df.groupby(['Year', 'State'])['CO2 (ppm)'].agg(['mean', 'max']).reset_index()
-
-    # Round the average and max CO2 values to 3 decimals
-    state_stats['mean'] = state_stats['mean'].round(3)
-    state_stats['max'] = state_stats['max'].round(3)
+# Round the average and max CO2 values to 3 decimals
+state_stats['mean'] = state_stats['mean'].round(3)
+state_stats['max'] = state_stats['max'].round(3)
 
 # Initialize Flask app
-server = Flask(__name__)
+app = Flask(__name__)
 
 # Initialize Dash app and link it to Flask server
 app = dash.Dash(__name__, server=server, routes_pathname_prefix='/dash/')
@@ -51,10 +43,10 @@ app.layout = html.Div([
     html.Div([
         dcc.Slider(
             id='my_slider',  # Correct the ID here
-            min=int(df['Year'].min()) if not df.empty else 2000,  # Set min to the earliest year
-            max=int(df['Year'].max()) if not df.empty else 2025,  # Set max to the latest year
-            value=int(df['Year'].max()) if not df.empty else 2025,  # Default to the latest year
-            marks={year: str(year) for year in range(int(df['Year'].min()), int(df['Year'].max()) + 1)} if not df.empty else {},
+            min=int(df['Year'].min()),  # Set min to the earliest year
+            max=int(df['Year'].max()),  # Set max to the latest year
+            value=int(df['Year'].max()),  # Default to the latest year
+            marks={year: str(year) for year in range(int(df['Year'].min()), int(df['Year'].max()) + 1)},
             step=1,
         ),
         html.Div(id='slider-output-container'),  # Container to show year
@@ -72,10 +64,6 @@ app.layout = html.Div([
     Input('my_slider', 'value')  # Listen to slider changes
 )
 def update_figure(selected_Year):
-    if df.empty:
-        # If data is empty, return empty content
-        return "No data available.", {}, "No data available."
-
     # Filter the data based on the selected year
     dff = state_stats[state_stats['Year'] == str(selected_Year)]
 
@@ -117,13 +105,14 @@ def update_figure(selected_Year):
     )
 
     # Return the updated text (year), map figure, and the first few rows of filtered data
-    return f"Selected Year: {selected_Year}", fig, table
+    return f"", fig, table
 
 # Route for the home page
 @server.route('/')
 def home():
-    return 'Welcome to the Flask app! <a href="/dash/">Go to the Dash app</a>'
+    return 'Welcome to the Flash app! <a href="/dash/">Go to the Dash app</a>'
 
 # Run the Flask app with Dash integrated
 if __name__ == '__main__':
+    # Gunicorn should automatically detect the 'server' object as the entry point
     server.run(debug=True)
