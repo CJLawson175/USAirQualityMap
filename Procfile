@@ -1,1 +1,1 @@
-web: gunicorn USAirQualityData:server
+web: gunicorn USAirQualityData:app
