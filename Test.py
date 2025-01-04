@@ -7,7 +7,7 @@ from flask import Flask
 import urllib.error
 
 # Import data from GitHub (use raw URL)
-data_url = 'https://raw.githubusercontent.com/CJLawson175/USAirQualityMap/main/ENG220_Data_Filtered.csv'
+data_url = 'https://raw.githubusercontent.com/CJLawson175/USAirQualityMap/main/USAirQualityData.csv'
 
 # Try fetching the data with error handling
 try:
