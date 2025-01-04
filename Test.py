@@ -1,23 +1,36 @@
 import pandas as pd
 import plotly.express as px
 import dash
-import dash_table  # Import the dash_table module
+import dash_table
 from dash import dcc, html, Input, Output
 from flask import Flask
+import urllib.error
 
 # Import data from GitHub (use raw URL)
 data_url = 'https://raw.githubusercontent.com/CJLawson175/USAirQualityMap/main/ENG220_Data_Filtered.csv'
-df = pd.read_csv(data_url)
 
-# Ensure the 'Year' column is treated as an integer or string (necessary for animation frame)
-df['Year'] = df['Year'].astype(str)
+# Try fetching the data with error handling
+try:
+    df = pd.read_csv(data_url)
+except urllib.error.HTTPError as e:
+    print(f"Error fetching data from {data_url}: {e}")
+    # Fallback to empty DataFrame if data can't be fetched
+    df = pd.DataFrame()
 
-# Calculate the yearly average, max, and min CO2 (ppm) per state
-state_stats = df.groupby(['Year', 'State'])['CO2 (ppm)'].agg(['mean', 'max']).reset_index()
+# Check if the data was loaded correctly
+if df.empty:
+    print("Data is empty or not found. Please verify the URL.")
 
-# Round the average and max CO2 values to 3 decimals
-state_stats['mean'] = state_stats['mean'].round(3)
-state_stats['max'] = state_stats['max'].round(3)
+# Ensure the 'Year' column is treated as a string (necessary for animation frame)
+if not df.empty:
+    df['Year'] = df['Year'].astype(str)
+
+    # Calculate the yearly average, max, and min CO2 (ppm) per state
+    state_stats = df.groupby(['Year', 'State'])['CO2 (ppm)'].agg(['mean', 'max']).reset_index()
+
+    # Round the average and max CO2 values to 3 decimals
+    state_stats['mean'] = state_stats['mean'].round(3)
+    state_stats['max'] = state_stats['max'].round(3)
 
 # Initialize Flask app
 server = Flask(__name__)
@@ -38,10 +51,10 @@ app.layout = html.Div([
     html.Div([
         dcc.Slider(
             id='my_slider',  # Correct the ID here
-            min=int(df['Year'].min()),  # Set min to the earliest year
-            max=int(df['Year'].max()),  # Set max to the latest year
-            value=int(df['Year'].max()),  # Default to the latest year
-            marks={year: str(year) for year in range(int(df['Year'].min()), int(df['Year'].max()) + 1)},
+            min=int(df['Year'].min()) if not df.empty else 2000,  # Set min to the earliest year
+            max=int(df['Year'].max()) if not df.empty else 2025,  # Set max to the latest year
+            value=int(df['Year'].max()) if not df.empty else 2025,  # Default to the latest year
+            marks={year: str(year) for year in range(int(df['Year'].min()), int(df['Year'].max()) + 1)} if not df.empty else {},
             step=1,
         ),
         html.Div(id='slider-output-container'),  # Container to show year
@@ -59,6 +72,10 @@ app.layout = html.Div([
     Input('my_slider', 'value')  # Listen to slider changes
 )
 def update_figure(selected_Year):
+    if df.empty:
+        # If data is empty, return empty content
+        return "No data available.", {}, "No data available."
+
     # Filter the data based on the selected year
     dff = state_stats[state_stats['Year'] == str(selected_Year)]
 
@@ -69,7 +86,7 @@ def update_figure(selected_Year):
         locations='State',  # Use 'State' column for locations
         scope="usa",
         color='mean',  # Color by average CO2 concentration
-        range_color = [0,0.2],
+        range_color=[0, 0.2],
         hover_data=['Year', 'mean', 'max'],  # Additional hover info for average and max CO2
         color_continuous_scale="Viridis",  # Choose an appropriate color scale
         labels={'mean': 'Average CO2 Concentration (ppm)', 'max': 'Max CO2 Concentration (ppm)'},
@@ -77,11 +94,11 @@ def update_figure(selected_Year):
 
     # Update the layout to ensure the map renders correctly
     fig.update_geos(
-        showland=True, 
-        landcolor="lightgray", 
-        showlakes=True, 
-        lakecolor="lightblue", 
-        coastlinecolor="black", 
+        showland=True,
+        landcolor="lightgray",
+        showlakes=True,
+        lakecolor="lightblue",
+        coastlinecolor="black",
         showcoastlines=True
     )
 
@@ -100,11 +117,13 @@ def update_figure(selected_Year):
     )
 
     # Return the updated text (year), map figure, and the first few rows of filtered data
-    return f"", fig, table
+    return f"Selected Year: {selected_Year}", fig, table
 
 # Route for the home page
 @server.route('/')
 def home():
-    return 'Welcome to the Flash app! <a href="/dash/">Go to the Dash app</a>'
+    return 'Welcome to the Flask app! <a href="/dash/">Go to the Dash app</a>'
 
-app.run()
+# Run the Flask app with Dash integrated
+if __name__ == '__main__':
+    server.run(debug=True)
