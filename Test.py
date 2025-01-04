@@ -1,4 +1,5 @@
-from dash import Dash, dcc, html, Input, Output
+from dash import Dash, dcc, html, dash_table, Input, Output
+from dash.dash_table.Format import Group
 import pandas as pd
 import plotly.express as px
 import os  # For reading environment variables
